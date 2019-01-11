@@ -12,7 +12,7 @@ static int ptrs_len= 0;
 
 
 
-void *parambinder_alloc(int l){
+void *parambind_alloc(int l){
 	void *p= 0;
 
 	if( ptrs_len<ptrs_lim && (p= VirtualAlloc(NULL,l, MEM_COMMIT,PAGE_EXECUTE_READWRITE)) ){
@@ -29,7 +29,7 @@ void *parambinder_alloc(int l){
 	return p;
 }
 
-void *parambinder_free(void *p){
+void *parambind_free(void *p){
 	if(p){
 		int i= 0;
 		for(; i<ptrs_len && ptrs[i] != p; ++i);

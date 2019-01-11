@@ -3,7 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
-#include "parambinder_i.h"
+#include "parambind_i.h"
 
 
 
@@ -49,7 +49,7 @@ void *bind_left(void *f, int closedArgc, void *closedArgv[], int my_freeArgc){
 	int size= closedArg_len*closedArgc + my_freeArg_len*my_freeArgc + body_len;
 	uint8_t *code= 0;
 
-	if( 0<=argc && argc<=32 && (code= parambinder_alloc(size)) ){
+	if( 0<=argc && argc<=32 && (code= parambind_alloc(size)) ){
 		uint32_t i;
 		uint8_t *p= code;
 
@@ -73,7 +73,7 @@ void *pack(void *f, int argc, void* argv[]){
 	uint32_t size= closedArg_len*argc + body_len;
 	uint8_t *code= 0;
 
-	if( 0<=argc && argc<=256 && (code= parambinder_alloc(size)) ){
+	if( 0<=argc && argc<=256 && (code= parambind_alloc(size)) ){
 		uint32_t i;
 		uint8_t *p= code;
 		for(i=0; i<argc; ++i, p+=closedArg_len){
@@ -99,7 +99,7 @@ void *unpack(void *code, int argc, void **f, void* argv[]){
 
 		*(uint32_t*)f= (uint32_t)(p+1+4) + *(int*)(p+1);
 
-		parambinder_free(code);
+		parambind_free(code);
 	}	
 
 	return 0;

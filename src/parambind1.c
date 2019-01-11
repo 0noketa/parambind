@@ -3,7 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
-#include "parambinder_i.h"
+#include "parambind_i.h"
 
 
 #ifdef FOR_I386_CDECL
@@ -47,7 +47,7 @@ void *bind_binary_p1
 		/* ret */
 		0xC3
 	};
-	void *code =parambinder_alloc(24);
+	void *code =parambind_alloc(24);
 	if(code){
 		memcpy(code, template, 18+2);
 		*(void**)((uint32_t)code+ARG_IDX) =arg;
@@ -67,7 +67,7 @@ void *unbind_binary_p1
 		*(uint32_t*)arg= *(uint32_t*)((uint32_t)code+ARG_IDX);
 		*(uint32_t*)f= *(uint32_t*)((uint32_t)code+FUNC_IDX) + (uint32_t)code+FUNC_IDX+4;
 		
-		parambinder_free(code);
+		parambind_free(code);
 	}
 	
 	return 0;
@@ -117,7 +117,7 @@ void *bind_binary_p2
 		/* ret */
 		0xC3
 	};
-	void *code =parambinder_alloc(24);
+	void *code =parambind_alloc(24);
 	if(code){
 		memcpy(code, template, 18+2);
 		*(void**)((uint32_t)code+ARG_IDX) =arg;
@@ -136,7 +136,7 @@ void *unbind_binary_p2
 		*(uint32_t*)arg= *(uint32_t*)((uint32_t)code+ARG_IDX);
 		*(uint32_t*)f= *(uint32_t*)((uint32_t)code+FUNC_IDX) + ((uint32_t)code+FUNC_IDX+4);
 		
-		parambinder_free(code);
+		parambind_free(code);
 	}
 	
 	return 0;
@@ -160,7 +160,7 @@ void *pack_anary(void *f, void *arg){
 		/* ret */
 		0xC3
 	};
-	void *code =parambinder_alloc(16);
+	void *code =parambind_alloc(16);
 	if(code){
 		memcpy(code, template, 12);
 		*(void**)((uint32_t)code+ARG_IDX) =arg;
@@ -174,7 +174,7 @@ void *unpack_anary(void *code, void *f, void *arg){
 		*(uint32_t*)arg= *(uint32_t*)((uint32_t)code+ARG_IDX);
 		*(uint32_t*)f= *(uint32_t*)((uint32_t)code+FUNC_IDX) + ((uint32_t)code+FUNC_IDX+4);
 		
-		parambinder_free(code);
+		parambind_free(code);
 	}
 	
 	return 0;
@@ -184,4 +184,4 @@ void *unpack_anary(void *code, void *f, void *arg){
 
 
 void *free_binder(void* p)
-	{ if(p)parambinder_free(p); return 0; }
+	{ if(p)parambind_free(p); return 0; }

@@ -8,8 +8,8 @@
 
 
 /* wrapper for alloc/free, out of this library */
-void *parambinder_alloc(int);
-void *parambinder_free(void*);
+void *parambind_alloc(int);
+void *parambind_free(void*);
 
 #ifdef FOR_I386_CDECL
 #define PARAMBIND_TARGET

@@ -9,7 +9,7 @@ static void *ptrs[ptrs_lim];
 static int ptrs_len= 0;
 
 
-void *parambinder_alloc(int l){
+void *parambind_alloc(int l){
 	void *p= 0;
 	if( ptrs_len<ptrs_lim && (p= calloc(1,l)) ){
 		ptrs[ptrs_len++]= p;
@@ -24,7 +24,7 @@ void *parambinder_alloc(int l){
 	return p;
 }
 
-void *parambinder_free(void *p){
+void *parambind_free(void *p){
 	if(p){
 		int i= 0;
 		for(; i<ptrs_len && ptrs[i] != p; ++i);

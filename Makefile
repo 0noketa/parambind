@@ -1,9 +1,9 @@
 CC = cc -O0 -DFOR_I386_CDECL
-MODS = src/parambinder1.o src/parambinder2.o
+MODS = src/parambind1.o src/parambind2.o
 LD = ar q
 
-parambinder.a: $(MODS)
-	$(LD) parambinder.a $(MODS)
+parambind.a: $(MODS)
+	$(LD) parambind.a $(MODS)
 
 clean:
 	rm -f src/*.o
