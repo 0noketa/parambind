@@ -1,0 +1,14 @@
+CC=tcc -c
+MODS=alloc_win32.o parambind0.o parambind1.o parambind2.o
+AR=tcc -ar
+
+
+../parambind.a: $(MODS)
+	$(AR) ../parambind.a $(MODS)
+
+$.o:
+	echo %*
+
+clean:
+	rm -f *.o
+	rm -f ../parambind.a

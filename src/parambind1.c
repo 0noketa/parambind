@@ -1,4 +1,4 @@
-/* 2012 8/9 .. 2015 5/16 */
+/* 2019 10/17 */
 /* only for 386+cdecl */
 #include <stdlib.h>
 #include <string.h>
@@ -6,140 +6,153 @@
 #include "parambind_i.h"
 
 
-#ifdef FOR_I386_CDECL
 #define ARG_IDX 5
 #define FUNC_IDX 11
-#else
-#define ARG_IDX 4
-#define FUNC_IDX 10
-#endif
-
-
-#ifdef FOR_I386_CDECL
-void *bind_binary_p2
-#else
-void *bind_binary_p1
-#endif
-(void *f, void *arg){
-	static uint8_t template[24] ={
+void *parambind_bind_r_cdecl(void *f, void *arg)
+{
+	const uint8_t template[] = {
 		/* pop edx */
 		0x5A,
 		/* pop eax */
 		0x58,
 		/* push eax */
 		0x50,
-#ifdef FOR_I386_CDECL
 		/* push edx */
 		0x52,
-#endif
 		/* push imm */
 		0x68, 0,0,0,0,
 		/* push eax */
 		0x50,
 		/* call imm(rel) */
 		0xE8, 0,0,0,0,
-#ifdef FOR_I386_CDECL
 		/* pop edx */
-		0x5E,
+		0x5A,
 		/* pop edx */
-		0x5E,
-#endif
+		0x5A,
 		/* ret */
 		0xC3
 	};
-	void *code =parambind_alloc(24);
-	if(code){
-		memcpy(code, template, 18+2);
-		*(void**)((uint32_t)code+ARG_IDX) =arg;
-		*(uint32_t*)((uint32_t)code+FUNC_IDX) =
-			(uint32_t)f - (uint32_t)((uint32_t)code+FUNC_IDX+4);
-	}
-	
-	return code;
+
+	return parambind_i_bind_one(
+			sizeof(template), &template,
+			FUNC_IDX, f,
+			ARG_IDX, arg);
 }
-#ifdef FOR_I386_CDECL
-void *unbind_binary_p2
-#else
-void *unbind_binary_p1
-#endif
-(void *code, void *f, void *arg){
-	if(code){
-		*(uint32_t*)arg= *(uint32_t*)((uint32_t)code+ARG_IDX);
-		*(uint32_t*)f= *(uint32_t*)((uint32_t)code+FUNC_IDX) + (uint32_t)code+FUNC_IDX+4;
-		
-		parambind_free(code);
-	}
-	
-	return 0;
+void *parambind_unbind_r_cdecl(void *code, void **arg)
+{
+	return parambind_i_unbind_one(
+		code,
+		FUNC_IDX,
+		ARG_IDX, arg);
 }
 #undef ARG_IDX
 #undef FUNC_IDX
 
 
+#define ARG_IDX 2
+#define FUNC_IDX 8
+void *parambind_bind_r_stdcall(void *f, void *arg)
+{
+	const uint8_t template[] = {
+		/* pop edx */
+		0x5A,
+		/* push imm */
+		0x68, 0,0,0,0,
+		/* push edx */
+		0x52,
+		/* jmp imm(rel) */
+		0xE9, 0,0,0,0
+	};
 
-#ifdef FOR_I386_CDECL
+	return parambind_i_bind_one(
+			sizeof(template), &template,
+			FUNC_IDX, f,
+			ARG_IDX, arg);
+}
+void *parambind_unbind_r_stdcall(void *code, void **arg)
+{
+	return parambind_i_unbind_one(
+		code,
+		FUNC_IDX,
+		ARG_IDX, arg);
+}
+#undef ARG_IDX
+#undef FUNC_IDX
+
+
 #define ARG_IDX 6
 #define FUNC_IDX 11
-#else
-#define ARG_IDX 5
-#define FUNC_IDX 10
-#endif
-
-#ifdef FOR_I386_CDECL
-void *bind_binary_p1
-#else
-void *bind_binary_p2
-#endif
-(void *f, void *arg){
-	static uint8_t template[24] ={
+void *parambind_bind_l_cdecl(void *f, void *arg)
+{
+	const uint8_t template[] ={
 		/* pop edx */
 		0x5A,
 		/* pop eax */
 		0x58,
 		/* push eax */
 		0x50,
-#ifdef FOR_I386_CDECL
 		/* push edx */
 		0x52,
-#endif
 		/* push eax */
 		0x50,
 		/* push imm */
 		0x68, 0,0,0,0,
 		/* call imm(rel) */
 		0xE8, 0,0,0,0,
-#ifdef FOR_I386_CDECL
 		/* pop edx */
-		0x5E,
+		0x5A,
 		/* pop edx */
-		0x5E,
-#endif
+		0x5A,
 		/* ret */
 		0xC3
 	};
-	void *code =parambind_alloc(24);
-	if(code){
-		memcpy(code, template, 18+2);
-		*(void**)((uint32_t)code+ARG_IDX) =arg;
-		*(uint32_t*)((uint32_t)code+FUNC_IDX) =(uint32_t)f - ((uint32_t)code+FUNC_IDX+4);
-	}
-	
-	return code;
+
+	return parambind_i_bind_one(
+			sizeof(template), &template,
+			FUNC_IDX, f,
+			ARG_IDX, arg);
 }
-#ifdef FOR_I386_CDECL
-void *unbind_binary_p1
-#else
-void *unbind_binary_p2
-#endif
-(void *code, void *f, void *arg){
-	if(code){
-		*(uint32_t*)arg= *(uint32_t*)((uint32_t)code+ARG_IDX);
-		*(uint32_t*)f= *(uint32_t*)((uint32_t)code+FUNC_IDX) + ((uint32_t)code+FUNC_IDX+4);
-		
-		parambind_free(code);
-	}
-	
-	return 0;
+void *parambind_unbind_l_cdecl(void *code, void **arg)
+{
+	return parambind_i_unbind_one(
+		code,
+		FUNC_IDX,
+		ARG_IDX, arg);
+}
+#undef ARG_IDX
+#undef FUNC_IDX
+
+
+#define ARG_IDX 3
+#define FUNC_IDX 10
+void *parambind_bind_l_stdcall(void *f, void *arg)
+{
+	const uint8_t template[] = {
+		/* pop edx */
+		0x5A,
+		/* pop eax */
+		0x58,
+		/* push imm */
+		0x68, 0,0,0,0,
+		/* push eax */
+		0x50,
+		/* push edx */
+		0x52,
+		/* jmp imm(rel) */
+		0xE9, 0,0,0,0
+	};
+
+	return parambind_i_bind_one(
+			sizeof(template), &template,
+			FUNC_IDX, f,
+			ARG_IDX, arg);
+}
+void *parambind_unbind_l_stdcall(void *code, void **arg)
+{
+	return parambind_i_unbind_one(
+		code,
+		FUNC_IDX,
+		ARG_IDX, arg);
 }
 #undef ARG_IDX
 #undef FUNC_IDX
@@ -147,41 +160,66 @@ void *unbind_binary_p2
 
 #define ARG_IDX 1
 #define FUNC_IDX 6
-void *pack_anary(void *f, void *arg){
-	static uint8_t template[16] ={
+void *parambind_bind_u_cdecl(void *f, void *arg)
+{
+	const uint8_t template[] = {
 		/* push imm */
 		0x68, 0,0,0,0,
 		/* call imm(rel) */
 		0xE8, 0,0,0,0,
-#ifdef FOR_I386_CDECL
 		/* pop edx */
-		0x5E,
-#endif
+		0x5A,
 		/* ret */
 		0xC3
 	};
-	void *code =parambind_alloc(16);
-	if(code){
-		memcpy(code, template, 12);
-		*(void**)((uint32_t)code+ARG_IDX) =arg;
-		*(uint32_t*)((uint32_t)code+FUNC_IDX) =(uint32_t)f - ((uint32_t)code+FUNC_IDX+4);
-	}
-	
-	return code;
+
+	return parambind_i_bind_one(
+		sizeof(template), &template,
+		FUNC_IDX, f,
+		ARG_IDX, arg);
 }
-void *unpack_anary(void *code, void *f, void *arg){
-	if(code){
-		*(uint32_t*)arg= *(uint32_t*)((uint32_t)code+ARG_IDX);
-		*(uint32_t*)f= *(uint32_t*)((uint32_t)code+FUNC_IDX) + ((uint32_t)code+FUNC_IDX+4);
-		
-		parambind_free(code);
-	}
-	
-	return 0;
+void *parambind_unbind_u_cdecl(void *code, void **arg)
+{
+	return parambind_i_unbind_one(
+		code,
+		FUNC_IDX,
+		ARG_IDX, arg);
+}
+#undef ARG_IDX
+#undef FUNC_IDX
+
+#define ARG_IDX 2
+#define FUNC_IDX 8
+void *parambind_bind_u_stdcall(void *f, void *arg)
+{
+	const uint8_t template[] = {
+		/* pop edx */
+		0x5A,
+		/* push imm */
+		0x68, 0,0,0,0,
+		/* push edx */
+		0x52,
+		/* jmp imm(rel) */
+		0xE9, 0,0,0,0
+	};
+
+	return parambind_i_bind_one(
+		sizeof(template), &template,
+		FUNC_IDX, f,
+		ARG_IDX, arg);
+}
+void *parambind_unbind_u_stdcall(void *code, void **arg)
+{
+	return parambind_i_unbind_one(
+		code,
+		FUNC_IDX,
+		ARG_IDX, arg);
 }
 #undef ARG_IDX
 #undef FUNC_IDX
 
 
-void *free_binder(void* p)
-	{ if(p)parambind_free(p); return 0; }
+void *parambind_free(void* p)
+{ 
+	return parambind_i_free(p);
+}

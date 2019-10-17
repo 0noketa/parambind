@@ -1,56 +1,61 @@
-/* .. 2015 5/16 */
-/* for implementation */
+/* 2019 10/17 */
+/* for implementations */
 #ifndef parambind__h
 #define parambind__h
 
 #include <stdlib.h>
 #include <stdint.h>
 
+/* wrappers for alloc/free, out of this library */
+extern void *parambind_i_alloc(size_t);
+extern void *parambind_i_free(void*);
+extern int parambind_i_init();
+extern int parambind_i_clean();
 
-/* wrapper for alloc/free, out of this library */
-void *parambind_alloc(int);
-void *parambind_free(void*);
-
-#ifdef FOR_I386_CDECL
-#define PARAMBIND_TARGET
-#endif
-
-#ifdef FOR_I386_PASCAL
-#define PARAMBIND_TARGET
-#endif
-
-#ifdef FOR_I386_STDCALL
-#define PARAMBIND_TARGET
-#endif
-
-#ifndef PARAMBIND_TARGET
-#define FOR_I386_CDECL
-#endif
+/* internal utils */
+extern void parambind_i_bind_func(void *imm, void *func);
+extern void *parambind_i_bind_one(
+	size_t template_size, void *template,
+	uint32_t func_idx, void *func,
+	uint32_t arg_idx, void *arg);
+extern void *parambind_i_unbind_func(void *imm);
+extern void *parambind_i_unbind_one(
+	void *code,
+	uint32_t func_idx,
+	uint32_t arg_idx, void **arg);
 
 
 /* (a,b->c) -> (b->c) */
-void *bind_binary_p1(void *f, void *arg);
-void *unbind_binary_p1(void *code, void *f, void *arg);
+void *parambind_bind_l_cdecl(void *f, void *arg);
+void *parambind_unbind_l_cdecl(void *code, void **out_arg);
+void *parambind_bind_l_stdcall(void *f, void *arg);
+void *parambind_unbind_l_stdcall(void *code, void **out_arg);
 
 /* (a,b->c) -> (a->c) */
-void *bind_binary_p2(void *f, void *arg);
-void *unbind_binary_p2(void *code, void *f, void *arg);
+void *parambind_bind_r_cdecl(void *f, void *arg);
+void *parambind_unbind_r_cdecl(void *code, void **out_arg);
+void *parambind_bind_r_stdcall(void *f, void *arg);
+void *parambind_unbind_r_stdcall(void *code, void **out_arg);
 
 /* (a->b) -> (->b) */
-void *pack_anary(void *f, void *arg);
-void *unpack_anary(void *code, void *f, void *arg);
+void *parambind_bind_u_cdecl(void *f, void *arg);
+void *parambind_unbind_u_cdecl(void *code, void **out_arg);
+void *parambind_bind_u_stdcall(void *f, void *arg);
+void *parambind_unbind_u_stdcall(void *code, void **out_arg);
 
 /* (a:..., b:...->c) -> (b:...->c) */
-void *bind_left(void *f, int closedArgc, void *closedArgv[], int freeArgc);
+void *parambind_bind_ls_cdecl(void *f, intptr_t argc, intptr_t closedArgc, void *closedArgv[]);
+void *parambind_bind_ls_stdcall(void *f, intptr_t argc, intptr_t closedArgc, void *closedArgv[]);
 
 /* (...->x) -> (->x) */
-void *pack(void *f, int argc, void* argv[]);
-void *unpack(void *code, int argc, void **f, void* argv[]);
-/* only for result of pack() */
-int rebind_packed(void *code, int argIdx, void *arg);
+void *parambind_bind_a_cdecl(void *f, intptr_t argc, void *argv[]);
+void *parambind_unbind_a_cdecl(void *code, intptr_t argc, void *out_argv[]);
+void *parambind_bind_a_stdcall(void *f, intptr_t argc, void *argv[]);
+void *parambind_unbind_a_stdcall(void *code, intptr_t argc, void *out_argv[]);
+
 
 /* deallocater for objects from this module */
-void *free_binder(void* p);
+void *parambind_free(void *p);
 
 
 #endif

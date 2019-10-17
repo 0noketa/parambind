@@ -1,10 +1,13 @@
-CC = cc -O0 -DFOR_I386_CDECL
-MODS = src/parambind1.o src/parambind2.o
-LD = ar q
+CC=cl /MD /arch:IA32
 
-parambind.a: $(MODS)
-	$(LD) parambind.a $(MODS)
+parambind.lib:
+    cd src && nmake -f Makefile.msvc "CC=$(CC)"
+
+test_stack_main.exe: parambind.lib test_stack_sub.obj
+    $(CC) test_stack_main.c test_stack_sub.obj parambind.lib
+
+test_sum.exe: parambind.lib test_stack_sub.obj
+    $(CC) test_sum.c test_stack_sub.obj parambind.lib
 
 clean:
-	rm -f src/*.o
-	rm -f *.a
+    cd src && nmake -f Makefile.msvc clean
