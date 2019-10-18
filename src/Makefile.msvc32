@@ -1,4 +1,4 @@
-MODS=alloc_win32.obj parambind0.obj parambind1.obj parambind2.obj
+MODS=alloc_win.obj parambind0.obj parambind1.obj parambind2.obj
 LD=lib
 
 ..\parambind.lib: $(MODS)

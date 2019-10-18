@@ -15,9 +15,10 @@ intptr_t pass(intptr_t v)
 
 intptr_t sum(intptr_t v, intptr_t (*f)())
 {
+    printf("%d +\n", (int)v);
+
     intptr_t v2 = f();
 
-    printf("+ %d \n", (int)v);
     return v + v2;
 }
 
@@ -29,12 +30,12 @@ int main(int argc, char *argv[])
     Stack *funcs = newStack(argc);
 
 
-    void *p = bind_u(pass, atoi(argv[1]));
+    void *p = bind_u(pass, (intptr_t)atoi(argv[1]));
     funcs->push(p);
 
     for (int i = 2; i < argc; ++i)
     {
-        void *a[] = { atoi(argv[i]), p };
+        void *a[] = { (intptr_t)atoi(argv[i]), p };
 
         p = bind_a(sum, 2, a);
         funcs->push(p);

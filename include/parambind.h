@@ -23,12 +23,25 @@ extern void *parambind_unbind_r_vectorcall(void *f, void **out_arg);
 extern void *parambind_bind_u_vectorcall(void *f, void *arg);
 extern void *parambind_unbind_u_vectorcall(void *f, void **out_arg);
 
+/* (a:..., b:...->c) -> (b:...->c) */
+/*
+extern void *parambind_bind_ls_cdecl(void *f, intptr_t argc, intptr_t closedArgc, void *closedArgv[]);
+*/
+
+/* (...->x) -> (->x) */
+extern void *parambind_bind_a_vectorcall(void *f, intptr_t argc, void *argv[]);
+extern void *parambind_unbind_a_vectorcall(void *code, intptr_t argc, void *out_argv[]);
+
+
 #define parambind_bind_l parambind_bind_l_vectorcall
 #define parambind_bind_r parambind_bind_r_vectorcall
 #define parambind_bind_u parambind_bind_u_vectorcall
+#define parambind_bind_ls parambind_bind_ls_vectorcall
+#define parambind_bind_a parambind_bind_a_vectorcall
 #define parambind_unbind_l parambind_unbind_l_vectorcall
 #define parambind_unbind_r parambind_unbind_r_vectorcall
 #define parambind_unbind_u parambind_unbind_u_vectorcall
+#define parambind_unbind_a parambind_unbind_a_vectorcall
 
 #else
 

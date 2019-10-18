@@ -23,7 +23,7 @@ void *parambind_bind_l_vectorcall(void *f, void *arg)
 		0x48, 0xB9, 0,0,0,0, 0,0,0,0,
 		/* call [rsp] */
 		0xFF, 0x14,0x24,
-		/* sub rsp, imm8(24) */
+		/* add rsp, imm8(24) */
 		0x48, 0x83, 0xC4, 24,
 		/* ret */
 		0xC3
@@ -60,7 +60,7 @@ void *parambind_bind_r_vectorcall(void *f, void *arg)
 		0x48, 0xBA, 0,0,0,0, 0,0,0,0,
 		/* call [rsp] */
 		0xFF, 0x14,0x24,
-		/* sub rsp, imm8(24) */
+		/* add rsp, imm8(24) */
 		0x48, 0x83, 0xC4, 24,
 		/* ret */
 		0xC3
