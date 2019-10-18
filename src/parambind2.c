@@ -1,4 +1,4 @@
-/* 2019 10/17 */
+/* 2019 10/18 */
 /* only for 386+cdecl */
 #include <stdlib.h>
 #include <string.h>
@@ -75,7 +75,7 @@ static size_t write_closedArg(void *dst, void *arg)
 {
 	memcpy(dst, template_closedArg, sizeof(template_closedArg));
 
-	void **p = (uint8_t*)dst + 1;
+	void **p = (void*)((uint8_t*)dst + 1);
 	*p = arg;
 
 	return sizeof(template_closedArg);
@@ -87,8 +87,8 @@ static size_t write_body_cdecl(void *dst, void *func, int closedArgc)
 
 	parambind_i_bind_func((uint8_t*)dst + 1, func);
 
-	void **p = (uint8_t*)dst + 7;
-	*p = closedArgc * 4;
+	void **p = (void*)((uint8_t*)dst + 7);
+	*p = (void*)(uintptr_t)(closedArgc * 4);
 
 	return sizeof(template_body_cdecl);
 }
@@ -99,7 +99,7 @@ static size_t write_body_stdcall(void *dst, void *func, int closedArgc)
 
 	parambind_i_bind_func((uint8_t*)dst + 1, func);
 
-	uint8_t *p = (uint8_t)dst + 8;
+	uint8_t *p = (uint8_t*)dst + 8;
 	*p = closedArgc * 4;
 
 	return sizeof(template_body_stdcall);

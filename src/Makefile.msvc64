@@ -1,0 +1,9 @@
+MODS=alloc_win.obj parambind0.obj parambind1_win64.obj
+LD=lib
+
+..\parambind64.lib: $(MODS)
+	$(LD) /out:..\parambind64.lib $(MODS)
+
+clean:
+	del *.obj
+	del ..\parambind64.lib

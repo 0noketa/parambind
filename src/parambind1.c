@@ -1,4 +1,4 @@
-/* 2019 10/17 */
+/* 2019 10/18 */
 /* only for 386+cdecl */
 #include <stdlib.h>
 #include <string.h>

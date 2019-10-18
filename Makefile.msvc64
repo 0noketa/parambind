@@ -1,0 +1,13 @@
+CC=cl /MD
+
+parambind64.lib:
+    cd src && nmake -f Makefile.msvc64 "CC=$(CC)"
+
+test_stack_main.exe: parambind64.lib test_stack_sub.obj
+    $(CC) test_stack_main.c test_stack_sub.obj parambind64.lib
+
+test_sum.exe: parambind64.lib test_stack_sub.obj
+    $(CC) test_sum.c test_stack_sub.obj parambind64.lib
+
+clean:
+    cd src && nmake -f Makefile.msvc64 clean

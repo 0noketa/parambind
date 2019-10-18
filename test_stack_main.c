@@ -16,7 +16,7 @@ int main()
 	if (stk1 && stk2)
 	{
 		intptr_t (*push)(intptr_t), (*pop)(void);
-		intptr_t a,b,c, d,e,f;
+		int a,b,c, d,e,f;
 
 		push = stk1->push;
 		push(1),push(3),push(5);
