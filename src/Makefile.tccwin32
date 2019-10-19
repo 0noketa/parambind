@@ -1,13 +1,13 @@
-CC=tcc -c
-MODS=alloc_win32.o parambind0.o parambind1.o parambind2.o
+CC=tcc
+MODS=alloc_win.o parambind0.o parambind1.o parambind2.o
 AR=tcc -ar
 
 
 ../parambind.a: $(MODS)
 	$(AR) ../parambind.a $(MODS)
 
-$.o:
-	echo %*
+%.o:
+	$(CC) -c $@
 
 clean:
 	rm -f *.o

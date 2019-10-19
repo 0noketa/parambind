@@ -1,5 +1,5 @@
 /* closure-like objects for usual cdecl(ia32) or vectorcall(x64) calling convention */
-/* 2019 10/18 */
+/* 2019 10/20 */
 #ifndef parambind__h
 #define parambind__h
 
@@ -24,13 +24,35 @@ extern void *parambind_bind_u_vectorcall(void *f, void *arg);
 extern void *parambind_unbind_u_vectorcall(void *f, void **out_arg);
 
 /* (a:..., b:...->c) -> (b:...->c) */
-/*
-extern void *parambind_bind_ls_cdecl(void *f, intptr_t argc, intptr_t closedArgc, void *closedArgv[]);
-*/
+/* 0 <= argc <= 6 */
+extern void *parambind_bind_ls_vectorcall(
+    void *f, intptr_t argc,
+    intptr_t closedArgc, void *closedArgv[]);
 
 /* (...->x) -> (->x) */
+/* 0 <= argc <= 14 */
 extern void *parambind_bind_a_vectorcall(void *f, intptr_t argc, void *argv[]);
 extern void *parambind_unbind_a_vectorcall(void *code, intptr_t argc, void *out_argv[]);
+
+
+/*
+extern void *parambind_bind_l_amd64(void *f, void *arg);
+extern void *parambind_bind_r_amd64(void *f, void *arg);
+extern void *parambind_bind_u_amd64(void *f, void *arg);
+*/
+/* 0 <= argc <= 14 */
+extern void *parambind_bind_a_amd64(void *f, intptr_t argc, void *argv[]);
+/*
+extern void *parambind_unbind_l_amd64(void *f, void **out_arg);
+extern void *parambind_unbind_r_amd64(void *f, void **out_arg);
+extern void *parambind_unbind_u_amd64(void *f, void **out_arg);
+*/
+extern void *parambind_unbind_a_amd64(void *code, intptr_t argc, void *out_argv[]);
+
+/* 0 <= argc <= 6 */
+extern void *parambind_bind_ls_amd64(
+    void *f, intptr_t argc,
+    intptr_t closedArgc, void *closedArgv[]);
 
 
 #define parambind_bind_l parambind_bind_l_vectorcall
