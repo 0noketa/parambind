@@ -16,6 +16,14 @@ static const uint8_t
 		/* jmp imm */
 		0x69, 0,0,0,0
 	},
+	template_saveCaller[] = {
+		/* mov rbp, [rsp] */
+		0x48, 0x8B, 0x2C, 0x24
+	},
+	template_loadCaller[] = {
+		/* mov [rsp], rbp */
+		0x48, 0x89, 0x2C, 0x24
+	},
 	template_allocAuto[] = {
 		/* sub rsp, imm8 */
 		0x48, 0x83, 0xEC, 0
@@ -220,6 +228,18 @@ static uint8_t **templates_peekArgFromStack_for(CConvention c)
 		: /* AMD64 */ templates_peekArgFromStack_amd64;
 }
 
+static size_t write_saveCaller(void *dst)
+{
+	if (dst) memcpy(dst, template_saveCaller, sizeof(template_saveCaller));
+
+	return sizeof(template_saveCaller);
+}
+static size_t write_loadCaller(void *dst)
+{
+	if (dst) memcpy(dst, template_loadCaller, sizeof(template_loadCaller));
+
+	return sizeof(template_loadCaller);
+}
 static size_t write_allocAuto(void *dst, uint8_t size)
 {
 	if (dst)
@@ -244,7 +264,7 @@ static size_t write_deallocAuto(void *dst, uint8_t size)
 
 	return sizeof(template_deallocAuto);
 }
-static size_t write_initVarg(void *dst, uint8_t idx, CConvention convention)
+static size_t write_initVarg(void *dst, int8_t idx, CConvention convention)
 {
 	if (dst)
 	{
@@ -481,7 +501,7 @@ void *parambind_unbind_a_amd64(void *code, intptr_t argc, void *argv[])
 }
 
 
-static size_t write_bind_ls_fastcall(
+static size_t write_bind_rs_fastcall(
 	void *dst,
 	void *f, intptr_t argc,
 	intptr_t closedArgc, void *closedArgv[],
@@ -502,27 +522,116 @@ static size_t write_bind_ls_fastcall(
 
 	d += write_allocAuto(ptrOrNull(p, d), vargsSize);
 
-	for (int i = 0; i < openedArgc; ++i)
+	for (int i = regs; i < openedArgc; ++i)
 	{
 		d += write_shiftArg(ptrOrNull(p, d),
-			vargsSize + (1 + i) * 8,
-			(closedArgc + i) * 8);
-	}
-
-	/* init registers with shifted args */
-	for (int i = closedArgc; i < argc && i < regs; ++i)
-	{
-		d += write_peekArgFromStack(ptrOrNull(p, d), i, convention);
+				vargsSize + (1 + i) * 8,
+				i * 8);
 	}
 
 	for (int i = 0; i < closedArgc; ++i)
 	{
-		d += write_closedArg(ptrOrNull(p, d), i, closedArgv[i], convention);
+		d += write_closedArg(ptrOrNull(p, d),
+				openedArgc + i, 
+				closedArgv[i], convention);
 	}
 
 	d += write_funcLoader(ptrOrNull(p, d), f);
 	d += write_peekAndCall(ptrOrNull(p, d));
 	d += write_deallocAuto(ptrOrNull(p, d), vargsSize);
+	d += write_ret(ptrOrNull(p, d));
+
+	return d;
+}
+
+static void *parambind_bind_rs_fastcall(
+	void *f, intptr_t argc,
+	intptr_t closedArgc, void *closedArgv[],
+	CConvention convention)
+{
+	if (!f
+		|| argc < 0 || argc > 7
+		|| argc < closedArgc || !closedArgv)
+		return NULL;
+
+	size_t size = 
+		write_bind_rs_fastcall(
+			NULL,
+			f, argc, closedArgc, closedArgv,
+			convention);
+
+	void *code = parambind_i_alloc(size);
+
+	if (code)
+	{
+		write_bind_rs_fastcall(
+			code,
+			f, argc, closedArgc, closedArgv,
+			convention);
+	}
+
+	return code;
+}
+
+void *parambind_bind_rs_vectorcall(
+	void *f, intptr_t argc,
+	intptr_t closedArgc, void *closedArgv[])
+{
+	return parambind_bind_rs_fastcall(
+		f, argc, closedArgc, closedArgv,
+		CCONVENTION_VECTORCALL);
+}
+void *parambind_bind_rs_amd64(
+	void *f, intptr_t argc,
+	intptr_t closedArgc, void *closedArgv[])
+{
+	return parambind_bind_rs_fastcall(
+		f, argc, closedArgc, closedArgv,
+		CCONVENTION_AMD64);
+}
+
+
+static size_t write_bind_ls_fastcall(
+	void *dst,
+	void *f, intptr_t argc,
+	intptr_t closedArgc, void *closedArgv[],
+	CConvention convention)
+{
+	intptr_t openedArgc = argc - closedArgc;
+	int regs = registersForArgs(convention);
+
+	ptrdiff_t d = 0;
+	uint8_t *p = dst;
+
+	d += write_saveCaller(ptrOrNull(p, d));
+
+	for (int i = 0; i < openedArgc && i < regs; ++i)
+	{
+		d += write_initVarg(ptrOrNull(p, d), i, convention);
+	}
+
+	d += closedArgc > 0
+		? write_allocAuto(ptrOrNull(p, d), (closedArgc - 1) * 8)
+		: write_deallocAuto(ptrOrNull(p, d), 8);
+
+	for (int i = 0; i < closedArgc; ++i)
+	{
+		d += write_closedArg(ptrOrNull(p, d),
+				i, 
+				closedArgv[i], convention);
+	}
+
+	for (int i = closedArgc; i < argc && i < regs; ++i)
+	{
+		d += write_peekArgFromStack(ptrOrNull(p, d), i, convention);
+	}
+
+	d += write_funcLoader(ptrOrNull(p, d), f);
+	d += write_peekAndCall(ptrOrNull(p, d));
+	d += closedArgc > 0
+		? write_deallocAuto(ptrOrNull(p, d), (closedArgc - 1) * 8)
+		: write_allocAuto(ptrOrNull(p, d), 8);
+	d += write_loadCaller(ptrOrNull(p, d));
 	d += write_ret(ptrOrNull(p, d));
 
 	return d;
@@ -534,7 +643,7 @@ static void *parambind_bind_ls_fastcall(
 	CConvention convention)
 {
 	if (!f
-		|| argc < 0 || argc > 7
+		|| argc < 0 || argc > 15
 		|| argc < closedArgc || !closedArgv)
 		return NULL;
 

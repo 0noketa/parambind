@@ -24,8 +24,14 @@ extern void *parambind_bind_u_vectorcall(void *f, void *arg);
 extern void *parambind_unbind_u_vectorcall(void *f, void **out_arg);
 
 /* (a:..., b:...->c) -> (b:...->c) */
-/* 0 <= argc <= 6 */
+/* 0 <= argc <= 14 */
 extern void *parambind_bind_ls_vectorcall(
+    void *f, intptr_t argc,
+    intptr_t closedArgc, void *closedArgv[]);
+
+/* (a:..., b:...->c) -> (a:...->c) */
+/* 0 <= argc <= 6 */
+extern void *parambind_bind_rs_vectorcall(
     void *f, intptr_t argc,
     intptr_t closedArgc, void *closedArgv[]);
 
@@ -49,8 +55,12 @@ extern void *parambind_unbind_u_amd64(void *f, void **out_arg);
 */
 extern void *parambind_unbind_a_amd64(void *code, intptr_t argc, void *out_argv[]);
 
-/* 0 <= argc <= 6 */
+/* 0 <= argc <= 14 */
 extern void *parambind_bind_ls_amd64(
+    void *f, intptr_t argc,
+    intptr_t closedArgc, void *closedArgv[]);
+/* 0 <= argc <= 6 */
+extern void *parambind_bind_rs_amd64(
     void *f, intptr_t argc,
     intptr_t closedArgc, void *closedArgv[]);
 
@@ -59,6 +69,7 @@ extern void *parambind_bind_ls_amd64(
 #define parambind_bind_r parambind_bind_r_vectorcall
 #define parambind_bind_u parambind_bind_u_vectorcall
 #define parambind_bind_ls parambind_bind_ls_vectorcall
+#define parambind_bind_rs parambind_bind_rs_vectorcall
 #define parambind_bind_a parambind_bind_a_vectorcall
 #define parambind_unbind_l parambind_unbind_l_vectorcall
 #define parambind_unbind_r parambind_unbind_r_vectorcall
@@ -118,6 +129,7 @@ extern void *parambind_free(void *f);
 #define bind_u parambind_bind_u
 #define bind_a parambind_bind_a
 #define bind_ls parambind_bind_ls
+#define bind_rs parambind_bind_rs
 #define unbind_l parambind_unbind_l
 #define unbind_r parambind_unbind_r
 #define unbind_u parambind_unbind_u
