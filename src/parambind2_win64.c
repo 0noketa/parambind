@@ -16,13 +16,21 @@ static const uint8_t
 		/* jmp imm */
 		0x69, 0,0,0,0
 	},
-	template_saveCaller[] = {
-		/* mov rbp, [rsp] */
-		0x48, 0x8B, 0x2C, 0x24
+	template_stackTopToR10[] = {
+		/* mov r10, [rsp] */
+		0x4C, 0x8B, 0x14, 0x24
 	},
-	template_loadCaller[] = {
-		/* mov [rsp], rbp */
-		0x48, 0x89, 0x2C, 0x24
+	template_r10ToStackTop[] = {
+		/* mov [rsp], r10 */
+		0x4C, 0x89, 0x14, 0x24
+	},
+	template_peekStackToR10[] = {
+		/* mov r10, [rsp+imm8] */
+		0x4C, 0x8B, 0x54, 0x24, 0
+	},
+	template_pokeR10ToStack[] = {
+		/* mov [rsp+imm8], r10 */
+		0x4C, 0x89, 0x54, 0x24, 0
 	},
 	template_allocAuto[] = {
 		/* sub rsp, imm8 */
@@ -228,18 +236,13 @@ static uint8_t **templates_peekArgFromStack_for(CConvention c)
 		: /* AMD64 */ templates_peekArgFromStack_amd64;
 }
 
-static size_t write_saveCaller(void *dst)
+static size_t write_any(void *dst, size_t size, uint8_t *template)
 {
-	if (dst) memcpy(dst, template_saveCaller, sizeof(template_saveCaller));
+	if (dst) memcpy(dst, template, size);
 
-	return sizeof(template_saveCaller);
+	return size;
 }
-static size_t write_loadCaller(void *dst)
-{
-	if (dst) memcpy(dst, template_loadCaller, sizeof(template_loadCaller));
 
-	return sizeof(template_loadCaller);
-}
 static size_t write_allocAuto(void *dst, uint8_t size)
 {
 	if (dst)
@@ -373,7 +376,7 @@ static size_t read_closedArg_amd64(void *dst, int idx, void **arg)
 	return read_closedArg(dst, idx, arg, CCONVENTION_AMD64);
 }
 
-static size_t write_shiftArg(void *dst, uint8_t _from, uint8_t _to)
+static size_t write_shiftArg(void *dst, int8_t _from, int8_t _to)
 {
 	if (dst)
 	{
@@ -386,6 +389,56 @@ static size_t write_shiftArg(void *dst, uint8_t _from, uint8_t _to)
 	}
 
 	return sizeof(template_shiftArg);
+}
+
+/* (0, 1, 2) -> (1, 2, 0) */
+static size_t write_rolWithR10(void *dst, int elements)
+{
+	if (elements <= 0) return 0;
+
+	ptrdiff_t d = 0;
+	uint8_t *p = dst;
+
+	d += write_any(ptrOrNull(p, d),
+			sizeof(template_stackTopToR10), template_stackTopToR10);
+		
+	for (int i = 0; i < elements - 1; ++i)
+	{
+		d += write_shiftArg(ptrOrNull(p, d), (i + 1) * 8, i * 8);
+	}
+
+	int8_t *pImm = ptrOrNull(p, d + 4);
+
+	d += write_any(ptrOrNull(p, d), 
+			sizeof(template_pokeR10ToStack), template_pokeR10ToStack);
+
+	if (pImm) *pImm = (elements - 1) * 8;
+
+	return d;
+}
+static size_t write_rorWithR10(void *dst, int elements)
+{
+	if (elements <= 0) return 0;
+
+	ptrdiff_t d = 0;
+	uint8_t *p = dst;
+
+	int8_t *pImm = ptrOrNull(p, d + 4);
+
+	d += write_any(ptrOrNull(p, d), 
+			sizeof(template_peekStackToR10), template_peekStackToR10);
+
+	if (pImm) *pImm = (elements - 1) * 8;
+		
+	for (int i = elements; --i > 0;)
+	{
+		d += write_shiftArg(ptrOrNull(p, d), (i - 1) * 8, i * 8);
+	}
+
+	d += write_any(ptrOrNull(p, d),
+			sizeof(template_r10ToStackTop), template_r10ToStackTop);
+
+	return d;
 }
 
 static size_t write_peekAndCall(void *dst)
@@ -603,16 +656,14 @@ static size_t write_bind_ls_fastcall(
 	ptrdiff_t d = 0;
 	uint8_t *p = dst;
 
-	d += write_saveCaller(ptrOrNull(p, d));
-
 	for (int i = 0; i < openedArgc && i < regs; ++i)
 	{
 		d += write_initVarg(ptrOrNull(p, d), i, convention);
 	}
 
-	d += closedArgc > 0
-		? write_allocAuto(ptrOrNull(p, d), (closedArgc - 1) * 8)
-		: write_deallocAuto(ptrOrNull(p, d), 8);
+	d += write_rolWithR10(ptrOrNull(p, d), openedArgc + 1);
+
+	d += write_allocAuto(ptrOrNull(p, d), closedArgc * 8);
 
 	for (int i = 0; i < closedArgc; ++i)
 	{
@@ -628,10 +679,9 @@ static size_t write_bind_ls_fastcall(
 
 	d += write_funcLoader(ptrOrNull(p, d), f);
 	d += write_peekAndCall(ptrOrNull(p, d));
-	d += closedArgc > 0
-		? write_deallocAuto(ptrOrNull(p, d), (closedArgc - 1) * 8)
-		: write_allocAuto(ptrOrNull(p, d), 8);
-	d += write_loadCaller(ptrOrNull(p, d));
+	d += write_deallocAuto(ptrOrNull(p, d), closedArgc * 8);
+
+	d += write_rorWithR10(ptrOrNull(p, d), openedArgc + 1);
 	d += write_ret(ptrOrNull(p, d));
 
 	return d;
