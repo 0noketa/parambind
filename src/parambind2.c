@@ -1,4 +1,4 @@
-/* 2019 10/18 */
+/* 2019 10/22 */
 /* only for 386+cdecl */
 #include <stdlib.h>
 #include <string.h>
@@ -51,21 +51,21 @@ static size_t write_espLoader(void *dst)
 	return sizeof(template_espLoader);
 }
 
-static size_t write_openedArg_cdecl(void *dst, int argc, uint8_t idx)
+static size_t write_openedArg_cdecl(void *dst, int argc, int8_t idx)
 {
 	memcpy(dst, template_openedArg, sizeof(template_openedArg));
 
-	uint8_t *p = (uint8_t*)dst + 2;
+	int8_t *p = (int8_t*)dst + 2;
 	*p = (idx + 1) * 4;
 
 	return sizeof(template_openedArg);
 }
 
-static size_t write_openedArg_stdcall(void *dst, int argc, uint8_t idx)
+static size_t write_openedArg_stdcall(void *dst, int argc, int8_t idx)
 {
 	memcpy(dst, template_openedArg, sizeof(template_openedArg));
 
-	uint8_t *p = (uint8_t*)dst + 2;
+	int8_t *p = (int8_t*)dst + 2;
 	*p = (argc - idx) * 4;
 
 	return sizeof(template_openedArg);
@@ -119,7 +119,7 @@ void *parambind_bind_ls_cdecl(void *f, intptr_t argc, intptr_t closedArgc, void 
 			+ sizeof(template_openedArg) * openedArgc 
 			+ sizeof(template_body_cdecl);
 
-	if (argc <= closedArgc || 0 > argc || argc > 32) return NULL;
+	if (argc < closedArgc || argc < 0 || argc > 28) return NULL;
 	
 	uint8_t *code = parambind_i_alloc(size);
 	
@@ -154,7 +154,7 @@ void *parambind_bind_ls_stdcall(void *f, intptr_t argc, intptr_t closedArgc, voi
 			+ sizeof(template_openedArg) * openedArgc 
 			+ sizeof(template_body_stdcall);
 
-	if (argc <= closedArgc || 0 > argc || argc > 32) return NULL;
+	if (argc < closedArgc || argc < 0 || argc > 28) return NULL;
 	
 	uint8_t *code = parambind_i_alloc(size);
 	

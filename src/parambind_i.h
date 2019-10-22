@@ -1,4 +1,4 @@
-/* 2019 10/18 */
+/* 2019 10/22 */
 #ifndef parambind_i__h
 #define parambind_i__h
 
@@ -11,8 +11,8 @@
 /* wrappers for alloc/free, out of this library */
 extern void *parambind_i_alloc(size_t);
 extern void *parambind_i_free(void*);
-extern int parambind_i_init();
-extern int parambind_i_clean();
+extern int parambind_i_init(void);
+extern int parambind_i_clean(void);
 
 /* internal utils */
 extern void parambind_i_bind_func(void *imm, void *func);

@@ -1,6 +1,6 @@
 CC=tcc -m64
 MODS=alloc_win.o parambind0.o parambind1_win64.o parambind2_win64.o
-AR=tcc -ar
+AR=tcc -m64 -ar
 
 
 ../parambind64.a: $(MODS)

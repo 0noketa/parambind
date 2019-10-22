@@ -1,13 +1,13 @@
 /* closure-like objects for usual cdecl(ia32) or vectorcall(x64) calling convention */
-/* 2019 10/20 */
+/* 2019 10/22 */
 #ifndef parambind__h
 #define parambind__h
 
 #include <stdint.h>
 
 
-extern int parambind_init();
-extern int parambind_clean();
+extern int parambind_init(void);
+extern int parambind_clean(void);
 
 
 #ifdef _WIN64
@@ -75,6 +75,13 @@ extern void *parambind_bind_rs_amd64(
 #define parambind_unbind_r parambind_unbind_r_vectorcall
 #define parambind_unbind_u parambind_unbind_u_vectorcall
 #define parambind_unbind_a parambind_unbind_a_vectorcall
+
+
+/* amd64 -> vectorcall */
+extern void *parambind_wrapas_vectorcall_amd64(void *f, intptr_t argc);
+/* vectorcall -> amd64 */
+extern void *parambind_wrapas_amd64_vectorcall(void *f, intptr_t argc);
+
 
 #else
 
