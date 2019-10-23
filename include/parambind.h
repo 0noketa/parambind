@@ -1,5 +1,5 @@
 /* closure-like objects for usual cdecl(ia32) or vectorcall(x64) calling convention */
-/* 2019 10/22 */
+/* 2019 10/23 */
 #ifndef parambind__h
 #define parambind__h
 
@@ -41,18 +41,16 @@ extern void *parambind_bind_a_vectorcall(void *f, intptr_t argc, void *argv[]);
 extern void *parambind_unbind_a_vectorcall(void *code, intptr_t argc, void *out_argv[]);
 
 
-/*
 extern void *parambind_bind_l_amd64(void *f, void *arg);
 extern void *parambind_bind_r_amd64(void *f, void *arg);
 extern void *parambind_bind_u_amd64(void *f, void *arg);
-*/
 /* 0 <= argc <= 14 */
 extern void *parambind_bind_a_amd64(void *f, intptr_t argc, void *argv[]);
-/*
+
 extern void *parambind_unbind_l_amd64(void *f, void **out_arg);
 extern void *parambind_unbind_r_amd64(void *f, void **out_arg);
 extern void *parambind_unbind_u_amd64(void *f, void **out_arg);
-*/
+
 extern void *parambind_unbind_a_amd64(void *code, intptr_t argc, void *out_argv[]);
 
 /* 0 <= argc <= 14 */
@@ -78,10 +76,11 @@ extern void *parambind_bind_rs_amd64(
 
 
 /* amd64 -> vectorcall */
+/* argc <= 4 */
 extern void *parambind_wrapas_vectorcall_amd64(void *f, intptr_t argc);
 /* vectorcall -> amd64 */
+/* argc <= 4 */
 extern void *parambind_wrapas_amd64_vectorcall(void *f, intptr_t argc);
-
 
 #else
 

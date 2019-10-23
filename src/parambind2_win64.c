@@ -1,5 +1,6 @@
-/* 2019 10/22 */
+/* 2019 10/23 */
 /* only for x64+vectorcall */
+/* system v amd64 implementation is incorrect. allocates spaces for register args like vectorcall */
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
@@ -72,6 +73,12 @@ static const uint8_t
 		/* call r11 */
 		0x41, 0xFF, 0xD3
 	},
+	template_jmpWithR11[] = {
+		/* mov r11, imm */
+		0x49, 0xBB, 0,0,0,0, 0,0,0,0,
+		/* jmp r11 */
+		0x41, 0xFF, 0xE3
+	},
 	template_moveWithR11[] = {
 		/* mov r11, [rsp+imm8] */
 		0x4C, 0x8B, 0x5C, 0x24, 0,
@@ -142,7 +149,7 @@ static const uint8_t
 		/* mov r11, imm */
 		0x49, 0xBB, 0,0,0,0, 0,0,0,0
 	},
-	template_closedArg[] = {
+	template_initClosedArg[] = {
 		/* mov r11, imm */
 		0x49, 0xBB, 0,0,0,0, 0,0,0,0,
 		/* mov [rsp+imm], r11 */
@@ -212,15 +219,29 @@ static X64Register *regsForArgs(CConvention c)
 	return c == CCONVENTION_VECTORCALL ? regs_vectorcall
 		: /* AMD64 */ regs_amd64;
 }
+static int countRegsUsedForArgs(int argc, CConvention c)
+{
+	int regs = countRegsForArgs(c);
 
+	return argc < regs ? argc : regs;
+}
 static size_t sizeofVargs(int argc, CConvention convention)
 {
 	int regs = countRegsForArgs(convention);
 	uint8_t size = argc * 8;
 
-	if (size % 16 == 0) size += 8;
-	if (size <= regs * 8) size = regs * 8 + 8;
-
+	if (convention == CCONVENTION_VECTORCALL)
+	{
+		if (size % 16 == 0) size += 8;
+		if (size <= regs * 8) size = regs * 8 + 8;		
+	}
+	else
+	{
+		size = argc >= regs
+			? size - regs * 8
+			: 0;
+	}
+	
 	return size;
 }
 
@@ -234,6 +255,8 @@ static size_t write_any(void *dst, size_t size, uint8_t *template)
 
 static size_t write_allocAuto(void *dst, uint8_t size)
 {
+	if (size == 0) return 0;
+
 	if (dst)
 	{
 		memcpy(dst, template_allocAuto, sizeof(template_allocAuto));
@@ -246,6 +269,8 @@ static size_t write_allocAuto(void *dst, uint8_t size)
 }
 static size_t write_deallocAuto(void *dst, uint8_t size)
 {
+	if (size == 0) return 0;
+
 	if (dst)
 	{
 		memcpy(dst, template_deallocAuto, sizeof(template_deallocAuto));
@@ -309,13 +334,14 @@ static size_t write_ld(void *dst, X64Register reg, void *arg)
 
 }
 
-static size_t write_closedArg(void *dst, int idx, void *arg, CConvention convention)
+/* arg for inner call */
+static size_t write_initClosedArg(void *dst, int idx, void *arg, CConvention convention)
 {
 	if (!dst)
 	{
 		return idx < countRegsForArgs(convention)
 			? sizeof(template_ld_rcx)
-			: sizeof(template_closedArg);
+			: sizeof(template_initClosedArg);
 	}
 
 	if (idx < countRegsForArgs(convention))
@@ -324,24 +350,26 @@ static size_t write_closedArg(void *dst, int idx, void *arg, CConvention convent
 	}
 	else
 	{
-		memcpy(dst, template_closedArg, sizeof(template_closedArg));
+		memcpy(dst, template_initClosedArg, sizeof(template_initClosedArg));
 
 		int8_t *d = (void*)((int8_t*)dst + 14);
-		*d = idx * 8;
+		*d = convention == CCONVENTION_VECTORCALL
+				? idx * 8
+				: (idx - countRegsForArgs(convention)) * 8;
 
 		void **p = (void*)((uint8_t*)dst + 2);
 		*p = arg;
 
-		return sizeof(template_closedArg);
+		return sizeof(template_initClosedArg);
 	}	
 }
-static size_t write_closedArg_vectorcall(void *dst, int idx, void *arg)
+static size_t write_initClosedArg_vectorcall(void *dst, int idx, void *arg)
 {
-	return write_closedArg(dst, idx, arg, CCONVENTION_VECTORCALL);
+	return write_initClosedArg(dst, idx, arg, CCONVENTION_VECTORCALL);
 }
-static size_t write_closedArg_amd64(void *dst, int idx, void *arg)
+static size_t write_initClosedArg_amd64(void *dst, int idx, void *arg)
 {
-	return write_closedArg(dst, idx, arg, CCONVENTION_AMD64);
+	return write_initClosedArg(dst, idx, arg, CCONVENTION_AMD64);
 }
 
 static size_t read_ld(void *src, X64Register reg, void **out_imm)
@@ -352,7 +380,7 @@ static size_t read_ld(void *src, X64Register reg, void **out_imm)
 	return sizeof(template_ld_rcx);
 }
 
-static size_t read_closedArg(void *src, int idx, void **out_arg, CConvention convention)
+static size_t read_initClosedArg(void *src, int idx, void **out_arg, CConvention convention)
 {
 	if (idx < countRegsForArgs(convention))
 	{
@@ -363,16 +391,16 @@ static size_t read_closedArg(void *src, int idx, void **out_arg, CConvention con
 		void **p = (void*)((uint8_t*)src + 2);
 		if (out_arg) *out_arg = *p;
 
-		return sizeof(template_closedArg);
+		return sizeof(template_initClosedArg);
 	}	
 }
-static size_t read_closedArg_vectorcall(void *dst, int idx, void **arg)
+static size_t read_initClosedArg_vectorcall(void *dst, int idx, void **out_arg)
 {
-	return read_closedArg(dst, idx, arg, CCONVENTION_VECTORCALL);
+	return read_initClosedArg(dst, idx, out_arg, CCONVENTION_VECTORCALL);
 }
-static size_t read_closedArg_amd64(void *dst, int idx, void **arg)
+static size_t read_initClosedArg_amd64(void *dst, int idx, void **out_arg)
 {
-	return read_closedArg(dst, idx, arg, CCONVENTION_AMD64);
+	return read_initClosedArg(dst, idx, out_arg, CCONVENTION_AMD64);
 }
 
 static size_t write_moveWithR11(void *dst, int8_t _to, int8_t _from)
@@ -464,11 +492,23 @@ static size_t write_callWithR11(void *dst, void *f)
 
 	return sizeof(template_callWithR11);
 }
+static size_t write_jmpWithR11(void *dst, void *f)
+{
+	if (dst)
+	{
+		memcpy(dst, template_jmpWithR11, sizeof(template_jmpWithR11));
+
+		void **p = (void*)((uint8_t*)dst + 2);
+		*p = f;
+	}
+
+	return sizeof(template_jmpWithR11);
+}
 static size_t read_callWithR11(void *src, void **out_f)
 {
 	if (src && out_f) 
 	{
-		void **p = (uint8_t*)src + 2;
+		void **p = (void*)((uint8_t*)src + 2);
 		*out_f = *p;
 	}
 
@@ -480,6 +520,25 @@ static size_t write_ret(void *dst)
 	return write_any(dst, sizeof(template_ret), template_ret);
 }
 
+
+static size_t write_callAndLeave(void *dst, void *f, size_t vargsSize)
+{
+	ptrdiff_t d = 0;
+	uint8_t *p = dst;
+
+	if (vargsSize == 0) 
+	{
+		d += write_jmpWithR11(ptrOrNull(p, d), f);
+	}
+	else
+	{
+		d += write_callWithR11(ptrOrNull(p, d), f);
+		d += write_deallocAuto(ptrOrNull(p, d), vargsSize);
+		d += write_ret(ptrOrNull(p, d));
+	}
+
+	return d;
+}
 
 static size_t write_bind_a_fastcall(
 	void *dst,
@@ -494,12 +553,10 @@ static size_t write_bind_a_fastcall(
 
 	for(intptr_t i = 0; i < argc; ++i)
 	{
-		d += write_closedArg(ptrOrNull(p, d), i, argv[i], convention);
+		d += write_initClosedArg(ptrOrNull(p, d), i, argv[i], convention);
 	}
 
-	d += write_callWithR11(ptrOrNull(p, d), f);
-	d += write_deallocAuto(ptrOrNull(p, d), vargsSize);
-	d += write_ret(ptrOrNull(p, d));
+	d += write_callAndLeave(ptrOrNull(p, d), f, vargsSize);
 
 	return d;
 }
@@ -552,15 +609,17 @@ static void *parambind_unbind_a_fastcall(
 
 	uint8_t *p = code;
 	
-	p += sizeof(template_allocAuto);
+	if (sizeofVargs(argc, convention) > 0)
+		p += sizeof(template_allocAuto);
 
 	for (int i = 0; i < argc; ++i)
 	{
-		p += read_closedArg(p, i, &argv[i], convention);
+		p += read_initClosedArg(p, i, &argv[i], convention);
 	}
 
 	void *func;
 
+	/* call and jmp has same layout */
 	p += read_callWithR11(p, &func);
 
 	parambind_i_free(code);
@@ -601,15 +660,13 @@ static size_t write_bind_rs_fastcall(
 
 	for (int i = 0; i < closedArgc; ++i)
 	{
-		d += write_closedArg(ptrOrNull(p, d),
+		d += write_initClosedArg(ptrOrNull(p, d),
 				openedArgc + i, 
 				closedArgv[i], 
 				convention);
 	}
 
-	d += write_callWithR11(ptrOrNull(p, d), f);
-	d += write_deallocAuto(ptrOrNull(p, d), vargsSize);
-	d += write_ret(ptrOrNull(p, d));
+	d += write_callAndLeave(ptrOrNull(p, d), f, vargsSize);
 
 	return d;
 }
@@ -684,7 +741,7 @@ static size_t write_bind_ls_fastcall(
 
 	for (int i = 0; i < closedArgc; ++i)
 	{
-		d += write_closedArg(ptrOrNull(p, d),
+		d += write_initClosedArg(ptrOrNull(p, d),
 				i, 
 				closedArgv[i], convention);
 	}
@@ -804,6 +861,8 @@ static size_t write_wrap(
 				srcConvention);
 	}
 
+	/* if amd64->vectorcall, remove register args from stack at here */
+
 	/* call */
 
 	d += write_callWithR11(ptrOrNull(p, d), f);
@@ -821,7 +880,10 @@ static size_t write_wrap(
 	}
 
 	d += write_copyWithR11(ptrOrNull(p, d), (srcRegs + 1) * 8, 0, argc);
+
+	/* if amd64->vectorcall, this block was not just srcRegs * 8 */
 	d += write_deallocAuto(ptrOrNull(p, d), srcRegs * 8);
+
 	d += write_toStack(ptrOrNull(p, d), REG_R10, 0);
 
 	/* ret */
@@ -859,17 +921,97 @@ static void *parambind_wrap(
 
 	return code;
 }
-void *parambind_wrapas_vectorcall_amd64(void *f, intptr_t argc)
+void *parambind_wrapas0_vectorcall_amd64(void *f, intptr_t argc)
 {
 	return parambind_wrap(
 			f, argc,
 			CCONVENTION_VECTORCALL,
 			CCONVENTION_AMD64);
 }
-void *parambind_wrapas_amd64_vectorcall(void *f, intptr_t argc)
+void *parambind_wrapas0_amd64_vectorcall(void *f, intptr_t argc)
 {
 	return parambind_wrap(
 			f, argc,
 			CCONVENTION_AMD64,
 			CCONVENTION_VECTORCALL);
+}
+void *parambind_wrapas_amd64_vectorcall(void *f, intptr_t argc)
+{
+	const uint8_t template[] = {
+		/* mov r9, rcx */
+		0x49, 0x89, 0xC9,
+		/* mov r8, rdx */
+		0x49, 0x89, 0xD0,
+		/* mov rdx, rdi */
+		0x48, 0x89, 0xFA,
+		/* mov rcx, rsi */
+		0x48, 0x89, 0xF1,
+		/* sub rsp, 40 */
+		0x48, 0x83, 0xEC, 40,
+		/* mov r11, imm */
+		0x49, 0xBB, 0,0,0,0, 0,0,0,0,
+		/* call r11 */
+		0x41, 0xFF, 0xD3,
+		/* add rsp, 40 */
+		0x48, 0x83, 0xC4, 40,
+		/* ret */
+		0xC3
+	};
+
+	if (argc > 4 || f == NULL) return NULL;
+
+	uint8_t *code = parambind_i_alloc(sizeof(template));
+
+	if (code)
+	{
+		void **p = (void*)(code + 18);
+
+		*p = f;
+	}
+
+	return code;
+}
+void *parambind_wrapas_vectorcall_amd64(void *f, intptr_t argc)
+{
+	const uint8_t template[] = {
+		/* sub rsp, 40 */
+		0x48, 0x83, 0xEC, 40,
+		/* mov [rsp], rsi */
+		0x48, 0x89, 0x34, 0x24,
+		/* mov [rsp+8], rdi */
+		0x48, 0x89, 0x7C, 0x24, 8,
+		/* mov rsi, rcx */
+		0x48, 0x89, 0xCE,
+		/* mov rdi, rdx */
+		0x48, 0x89, 0xD7,
+		/* mov rdx, r8 */
+		0x4C, 0x89, 0xC2,
+		/* mov rcx, r9 */
+		0x4C, 0x89, 0xC9,
+		/* mov r11, imm */
+		0x49, 0xBB, 0,0,0,0, 0,0,0,0,
+		/* call r11 */
+		0x41, 0xFF, 0xD3,
+		/* mov rsi, [rsp] */
+		0x48, 0x8B, 0x34, 0x24,
+		/* mov rdi,[rsp+8] */
+		0x48, 0x8B, 0x7C, 0x24, 8,
+		/* add rsp, 40 */
+		0x48, 0x83, 0xC4, 40,
+		/* ret */
+		0xC3
+	};
+
+	if (argc > 4 || f == NULL) return NULL;
+
+	uint8_t *code = parambind_i_alloc(sizeof(template));
+
+	if (code)
+	{
+		void **p = (void*)(code + 27);
+
+		*p = f;
+	}
+
+	return code;
 }
