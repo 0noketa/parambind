@@ -1,9 +1,8 @@
-/* 2019 10/23 */
 /* only for x64+vectorcall */
-/* system v amd64 implementation is incorrect. allocates spaces for register args like vectorcall */
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
+#include <stdbool.h>
 #include "parambind_i.h"
 
 
@@ -34,6 +33,10 @@ static const uint8_t
 	template_allocAuto[] = {
 		/* sub rsp, imm8 */
 		0x48, 0x83, 0xEC, 0
+	},
+	template_mov[] = {
+		/* mov rax, rax */
+		0x48, 0x89, 0xC0
 	},
 	template_toStack_rcx[] = {
 		/* mov [rsp+imm], rcx */
@@ -244,7 +247,18 @@ static size_t sizeofVargs(int argc, CConvention convention)
 	
 	return size;
 }
-
+/* [rsp+?] */
+static int8_t distanceofStackArg(int idx, CConvention convention)
+{
+	return idx * 8
+		- (convention == CCONVENTION_VECTORCALL
+			? 0
+			: countRegsForArgs(convention) * 8);
+}
+static bool hasStackSpaceForRegArgs(CConvention c)
+{
+	return c == CCONVENTION_VECTORCALL;
+}
 
 static size_t write_any(void *dst, size_t size, uint8_t *template)
 {
@@ -321,15 +335,93 @@ static size_t write_regArgFromStack(
 {
 	return write_fromStack(dst, regsForArgs(convention)[regIdx], d);
 }
+
+static size_t write_mov(void *dst, X64Register dstReg, X64Register srcReg)
+{
+	size_t r = write_any(dst, sizeof(template_mov), template_mov);
+
+	if (dst)
+	{
+		uint8_t *p = dst;
+
+		if (dstReg >= REG_R8)
+		{
+			p[0] |= 0x01;
+			p[2] |= dstReg - REG_R8;
+		}
+		else if (dstReg >= REG_RSI)
+		{
+			p[2] |= 0x06 | (dstReg - REG_RSI);
+		}
+		else
+		{
+			p[2] |= dstReg;
+		}
+
+		if (srcReg >= REG_R8)
+		{
+			p[0] |= 0x04;
+			p[2] |= (srcReg - REG_R8) << 3;
+		}
+		else if (srcReg >= REG_RSI)
+		{
+			p[2] |= 0x30 | (srcReg - REG_RSI) << 3;
+		}
+		else
+		{
+			p[2] |= srcReg << 3;
+		}
+		
+	}
+
+	return r;
+}
+static size_t write_moveWithR11(void *dst, int8_t _to, int8_t _from);
+static size_t write_shiftArg(void *dst, int dstIdx, int srcIdx, CConvention convention)
+{
+	int nRegs = countRegsForArgs(convention);
+	X64Register *regs = regsForArgs(convention);
+
+	uint8_t *p = dst;
+	ptrdiff_t d = 0;
+
+	if (dstIdx < nRegs && srcIdx < nRegs)
+	{
+		d += write_mov(ptrOrNull(p, d), regs[dstIdx], regs[srcIdx]);
+	}
+	else if (dstIdx < nRegs)
+	{
+		d += write_fromStack(ptrOrNull(p, d),
+			regs[dstIdx], 
+			distanceofStackArg(srcIdx, convention));
+	}
+	else if (srcIdx < nRegs)
+	{
+		d += write_toStack(ptrOrNull(p, d),
+			regs[srcIdx],
+			distanceofStackArg(dstIdx, convention));
+	}
+	else
+	{
+		d += write_moveWithR11(ptrOrNull(p, d),
+			distanceofStackArg(dstIdx, convention),
+			distanceofStackArg(srcIdx, convention));
+	}
+	
+	return d;
+}
+
 static size_t write_ld(void *dst, X64Register reg, void *arg)
 {
-	memcpy(dst, 
-		templates_ld[reg], 
-		sizeof(template_ld_rcx));
+	if (dst)
+	{
+		memcpy(dst, 
+			templates_ld[reg], 
+			sizeof(template_ld_rcx));
 
-	void **p = (void*)((uint8_t*)dst + 2);
-	*p = arg;
-
+		void **p = (void*)((uint8_t*)dst + 2);
+		*p = arg;
+	}
 	return sizeof(template_ld_rcx);
 
 }
@@ -725,45 +817,77 @@ static size_t write_bind_ls_fastcall(
 {
 	intptr_t openedArgc = argc - closedArgc;
 	int regs = countRegsForArgs(convention);
+	size_t vargsSize = sizeofVargs(argc, convention);
+	size_t openedVargsSize = sizeofVargs(openedArgc, convention);
+	size_t closedVargsSize = closedArgc * 8
+		- (hasStackSpaceForRegArgs(convention)
+			? 0
+			: regs < closedArgc
+				? regs * 8
+				: closedArgc * 8);
 
 	ptrdiff_t d = 0;
 	uint8_t *p = dst;
 
-	for (int i = 0; i < openedArgc && i < regs; ++i)
+	if (openedVargsSize > 0)
 	{
-		d += write_regArgToStack(ptrOrNull(p, d),
-				i, (i + 1) * 8,
-				convention);
+		if (argc <= regs)
+		{ /* vectorcall-like (space for register args in stack) */
+			d += write_moveWithR11(ptrOrNull(p, d),
+					openedArgc * 8,
+					0);
+		}
+		else
+		{
+			d += write_rol(ptrOrNull(p, d), openedArgc + 1);
+		}		
 	}
 
-	d += write_rol(ptrOrNull(p, d), openedArgc + 1);
-	d += write_allocAuto(ptrOrNull(p, d), closedArgc * 8);
+	d += write_allocAuto(ptrOrNull(p, d), closedVargsSize);
+
+	for (int i = regs < openedArgc 
+			? regs 
+			: openedArgc; 
+		i-- > 0;
+		)
+	{
+		d += write_shiftArg(ptrOrNull(p, d),
+				closedArgc + i,
+				i,
+				convention);
+	}
 
 	for (int i = 0; i < closedArgc; ++i)
 	{
 		d += write_initClosedArg(ptrOrNull(p, d),
 				i, 
-				closedArgv[i], convention);
-	}
-
-	for (int i = closedArgc; i < argc && i < regs; ++i)
-	{
-		d += write_regArgFromStack(ptrOrNull(p, d),
-				i, i * 8,
+				closedArgv[i], 
 				convention);
 	}
 
-	d += write_callWithR11(ptrOrNull(p, d), f);
-	d += write_deallocAuto(ptrOrNull(p, d), closedArgc * 8);
+	if (vargsSize > 0)
+	{
+		d += write_callWithR11(ptrOrNull(p, d), f);
 
-	/*
-	d += write_ror(ptrOrNull(p, d), openedArgc + 1);
-	*/
-	d += write_moveWithR11(ptrOrNull(p, d),
-		0,
-		openedArgc * 8);
+		d += write_deallocAuto(ptrOrNull(p, d), closedVargsSize);
 
-	d += write_ret(ptrOrNull(p, d));
+		if (openedVargsSize > 0)
+		{
+			/* 
+			d += write_ror(ptrOrNull(p, d), openedArgc + 1);
+			*/
+			d += write_moveWithR11(ptrOrNull(p, d),
+				0,
+				openedArgc * 8);
+		}
+
+		d += write_ret(ptrOrNull(p, d));
+	}
+	else
+	{
+		d += write_jmpWithR11(ptrOrNull(p, d), f);
+	}
+	
 
 	return d;
 }
