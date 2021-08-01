@@ -1,9 +1,14 @@
-/* closure-like objects for usual cdecl(ia32) or vectorcall(x64) calling convention */
+/* closure-like objects for usual cdecl(ia32) or fastcall64(x64) calling convention */
 /* 2019 10/23 */
 #ifndef parambind__h
 #define parambind__h
 
 #include <stdint.h>
+
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 
 extern int parambind_init(void);
@@ -12,33 +17,33 @@ extern int parambind_clean(void);
 
 #ifdef _WIN64
 /* (a,b->c) -> (b->c) */
-extern void *parambind_bind_l_vectorcall(void *f, void *arg);
-extern void *parambind_unbind_l_vectorcall(void *f, void **out_arg);
+extern void *parambind_bind_l_fastcall64(void *f, void *arg);
+extern void *parambind_unbind_l_fastcall64(void *f, void **out_arg);
 
 /* (a,b->c) -> (a->c) */
-extern void *parambind_bind_r_vectorcall(void *f, void *arg);
-extern void *parambind_unbind_r_vectorcall(void *f, void **out_arg);
+extern void *parambind_bind_r_fastcall64(void *f, void *arg);
+extern void *parambind_unbind_r_fastcall64(void *f, void **out_arg);
 
 /* (a->b) -> (->b) */
-extern void *parambind_bind_u_vectorcall(void *f, void *arg);
-extern void *parambind_unbind_u_vectorcall(void *f, void **out_arg);
+extern void *parambind_bind_u_fastcall64(void *f, void *arg);
+extern void *parambind_unbind_u_fastcall64(void *f, void **out_arg);
 
 /* (a:..., b:...->c) -> (b:...->c) */
 /* 0 <= argc <= 14 */
-extern void *parambind_bind_ls_vectorcall(
+extern void *parambind_bind_ls_fastcall64(
     void *f, intptr_t argc,
     intptr_t closedArgc, void *closedArgv[]);
 
 /* (a:..., b:...->c) -> (a:...->c) */
 /* 0 <= argc <= 6 */
-extern void *parambind_bind_rs_vectorcall(
+extern void *parambind_bind_rs_fastcall64(
     void *f, intptr_t argc,
     intptr_t closedArgc, void *closedArgv[]);
 
 /* (...->x) -> (->x) */
 /* 0 <= argc <= 14 */
-extern void *parambind_bind_a_vectorcall(void *f, intptr_t argc, void *argv[]);
-extern void *parambind_unbind_a_vectorcall(void *code, intptr_t argc, void *out_argv[]);
+extern void *parambind_bind_a_fastcall64(void *f, intptr_t argc, void *argv[]);
+extern void *parambind_unbind_a_fastcall64(void *code, intptr_t argc, void *out_argv[]);
 
 
 extern void *parambind_bind_l_amd64(void *f, void *arg);
@@ -63,24 +68,24 @@ extern void *parambind_bind_rs_amd64(
     intptr_t closedArgc, void *closedArgv[]);
 
 
-#define parambind_bind_l parambind_bind_l_vectorcall
-#define parambind_bind_r parambind_bind_r_vectorcall
-#define parambind_bind_u parambind_bind_u_vectorcall
-#define parambind_bind_ls parambind_bind_ls_vectorcall
-#define parambind_bind_rs parambind_bind_rs_vectorcall
-#define parambind_bind_a parambind_bind_a_vectorcall
-#define parambind_unbind_l parambind_unbind_l_vectorcall
-#define parambind_unbind_r parambind_unbind_r_vectorcall
-#define parambind_unbind_u parambind_unbind_u_vectorcall
-#define parambind_unbind_a parambind_unbind_a_vectorcall
+#define parambind_bind_l parambind_bind_l_fastcall64
+#define parambind_bind_r parambind_bind_r_fastcall64
+#define parambind_bind_u parambind_bind_u_fastcall64
+#define parambind_bind_ls parambind_bind_ls_fastcall64
+#define parambind_bind_rs parambind_bind_rs_fastcall64
+#define parambind_bind_a parambind_bind_a_fastcall64
+#define parambind_unbind_l parambind_unbind_l_fastcall64
+#define parambind_unbind_r parambind_unbind_r_fastcall64
+#define parambind_unbind_u parambind_unbind_u_fastcall64
+#define parambind_unbind_a parambind_unbind_a_fastcall64
 
 
-/* amd64 -> vectorcall */
+/* amd64 -> fastcall64 */
 /* argc <= 4 */
-extern void *parambind_wrapas_vectorcall_amd64(void *f, intptr_t argc);
-/* vectorcall -> amd64 */
+extern void *parambind_wrapas_fastcall64_amd64(void *f, intptr_t argc);
+/* fastcall64 -> amd64 */
 /* argc <= 4 */
-extern void *parambind_wrapas_amd64_vectorcall(void *f, intptr_t argc);
+extern void *parambind_wrapas_amd64_fastcall64(void *f, intptr_t argc);
 
 #else
 
@@ -140,6 +145,11 @@ extern void *parambind_free(void *f);
 #define unbind_r parambind_unbind_r
 #define unbind_u parambind_unbind_u
 #define unbind_a parambind_unbind_a
+#endif
+
+
+#ifdef __cplusplus
+}
 #endif
 
 

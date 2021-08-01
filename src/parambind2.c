@@ -1,5 +1,6 @@
 /* 2019 10/22 */
 /* only for 386+cdecl */
+#ifndef _X86
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
@@ -281,3 +282,6 @@ void *parambind_unbind_a_stdcall(void *code, intptr_t argc, void *argv[])
 	else
 		return 0;
 }
+
+
+#endif

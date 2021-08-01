@@ -1,5 +1,6 @@
 /* 2019 10/18 */
-/* only for x64+vectorcall */
+/* only for x64+fastcall64 */
+#ifdef _WIN64
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
@@ -8,7 +9,7 @@
 
 #define ARG_IDX 23
 #define FUNC_IDX 6
-void *parambind_bind_l_vectorcall(void *f, void *arg)
+void *parambind_bind_l_fastcall64(void *f, void *arg)
 {
 	const uint8_t template[] = {
 		/* sub rsp, imm8(24) */
@@ -34,7 +35,7 @@ void *parambind_bind_l_vectorcall(void *f, void *arg)
 			FUNC_IDX, f,
 			ARG_IDX, arg);
 }
-void *parambind_unbind_l_vectorcall(void *code, void **arg)
+void *parambind_unbind_l_fastcall64(void *code, void **arg)
 {
 	return parambind_i_unbind_one_abs(
 		code,
@@ -47,7 +48,7 @@ void *parambind_unbind_l_vectorcall(void *code, void **arg)
 
 #define ARG_IDX 20
 #define FUNC_IDX 6
-void *parambind_bind_r_vectorcall(void *f, void *arg)
+void *parambind_bind_r_fastcall64(void *f, void *arg)
 {
 	const uint8_t template[] = {
 		/* sub rsp, imm8(24) */
@@ -71,7 +72,7 @@ void *parambind_bind_r_vectorcall(void *f, void *arg)
 			FUNC_IDX, f,
 			ARG_IDX, arg);
 }
-void *parambind_unbind_r_vectorcall(void *code, void **arg)
+void *parambind_unbind_r_fastcall64(void *code, void **arg)
 {
 	return parambind_i_unbind_one_abs(
 		code,
@@ -82,13 +83,13 @@ void *parambind_unbind_r_vectorcall(void *code, void **arg)
 #undef FUNC_IDX
 
 
-void *parambind_bind_u_vectorcall(void *f, void *arg)
+void *parambind_bind_u_fastcall64(void *f, void *arg)
 {
-	return parambind_bind_l_vectorcall(f, arg);
+	return parambind_bind_l_fastcall64(f, arg);
 }
-void *parambind_unbind_u_vectorcall(void *code, void **arg)
+void *parambind_unbind_u_fastcall64(void *code, void **arg)
 {
-	return parambind_unbind_l_vectorcall(code, arg);
+	return parambind_unbind_l_fastcall64(code, arg);
 }
 
 
@@ -96,3 +97,6 @@ void *parambind_free(void* p)
 { 
 	return parambind_i_free(p);
 }
+
+
+#endif

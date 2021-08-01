@@ -1,5 +1,6 @@
 /* 2019 10/18 */
 /* only for 386+cdecl */
+#ifndef _WIN64
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
@@ -223,3 +224,6 @@ void *parambind_free(void* p)
 { 
 	return parambind_i_free(p);
 }
+
+
+#endif

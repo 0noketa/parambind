@@ -1,4 +1,5 @@
-/* only for x64+vectorcall */
+/* only for x64+fastcall64 */
+#ifdef _WIN64
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
@@ -13,7 +14,7 @@ typedef enum {
 } X64Register;
 
 typedef enum {
-	CCONVENTION_VECTORCALL,
+	CCONVENTION_FASTCALL64,
 	CCONVENTION_AMD64
 } CConvention;
 
@@ -199,7 +200,7 @@ const uint8_t *templates_fromStack[] = {
 	[REG_R11] = template_fromStack_r11
 };
 
-const X64Register regs_vectorcall[] = {
+const X64Register regs_fastcall64[] = {
 	REG_RCX, REG_RDX, REG_R8, REG_R9
 };
 const X64Register regs_amd64[] = {
@@ -214,12 +215,12 @@ uint8_t *ptrOrNull(uint8_t *p, ptrdiff_t d)
 
 static int countRegsForArgs(CConvention c)
 {
-	return c == CCONVENTION_VECTORCALL ? 4
+	return c == CCONVENTION_FASTCALL64 ? 4
 		: /* AMD64 */ 6;
 }
 static X64Register *regsForArgs(CConvention c)
 {
-	return c == CCONVENTION_VECTORCALL ? regs_vectorcall
+	return c == CCONVENTION_FASTCALL64 ? regs_fastcall64
 		: /* AMD64 */ regs_amd64;
 }
 static int countRegsUsedForArgs(int argc, CConvention c)
@@ -233,7 +234,7 @@ static size_t sizeofVargs(int argc, CConvention convention)
 	int regs = countRegsForArgs(convention);
 	uint8_t size = argc * 8;
 
-	if (convention == CCONVENTION_VECTORCALL)
+	if (convention == CCONVENTION_FASTCALL64)
 	{
 		if (size % 16 == 0) size += 8;
 		if (size <= regs * 8) size = regs * 8 + 8;		
@@ -251,13 +252,13 @@ static size_t sizeofVargs(int argc, CConvention convention)
 static int8_t distanceofStackArg(int idx, CConvention convention)
 {
 	return idx * 8
-		- (convention == CCONVENTION_VECTORCALL
+		- (convention == CCONVENTION_FASTCALL64
 			? 0
 			: countRegsForArgs(convention) * 8);
 }
 static bool hasStackSpaceForRegArgs(CConvention c)
 {
-	return c == CCONVENTION_VECTORCALL;
+	return c == CCONVENTION_FASTCALL64;
 }
 
 static size_t write_any(void *dst, size_t size, uint8_t *template)
@@ -445,7 +446,7 @@ static size_t write_initClosedArg(void *dst, int idx, void *arg, CConvention con
 		memcpy(dst, template_initClosedArg, sizeof(template_initClosedArg));
 
 		int8_t *d = (void*)((int8_t*)dst + 14);
-		*d = convention == CCONVENTION_VECTORCALL
+		*d = convention == CCONVENTION_FASTCALL64
 				? idx * 8
 				: (idx - countRegsForArgs(convention)) * 8;
 
@@ -455,9 +456,9 @@ static size_t write_initClosedArg(void *dst, int idx, void *arg, CConvention con
 		return sizeof(template_initClosedArg);
 	}	
 }
-static size_t write_initClosedArg_vectorcall(void *dst, int idx, void *arg)
+static size_t write_initClosedArg_fastcall64(void *dst, int idx, void *arg)
 {
-	return write_initClosedArg(dst, idx, arg, CCONVENTION_VECTORCALL);
+	return write_initClosedArg(dst, idx, arg, CCONVENTION_FASTCALL64);
 }
 static size_t write_initClosedArg_amd64(void *dst, int idx, void *arg)
 {
@@ -486,9 +487,9 @@ static size_t read_initClosedArg(void *src, int idx, void **out_arg, CConvention
 		return sizeof(template_initClosedArg);
 	}	
 }
-static size_t read_initClosedArg_vectorcall(void *dst, int idx, void **out_arg)
+static size_t read_initClosedArg_fastcall64(void *dst, int idx, void **out_arg)
 {
-	return read_initClosedArg(dst, idx, out_arg, CCONVENTION_VECTORCALL);
+	return read_initClosedArg(dst, idx, out_arg, CCONVENTION_FASTCALL64);
 }
 static size_t read_initClosedArg_amd64(void *dst, int idx, void **out_arg)
 {
@@ -681,9 +682,9 @@ static void *parambind_bind_a_fastcall(
 
 	return code;
 }
-void *parambind_bind_a_vectorcall(void *f, intptr_t argc, void *argv[])
+void *parambind_bind_a_fastcall64(void *f, intptr_t argc, void *argv[])
 {
-	return parambind_bind_a_fastcall(f, argc, argv, CCONVENTION_VECTORCALL);
+	return parambind_bind_a_fastcall(f, argc, argv, CCONVENTION_FASTCALL64);
 }
 void *parambind_bind_a_amd64(void *f, intptr_t argc, void *argv[])
 {
@@ -718,9 +719,9 @@ static void *parambind_unbind_a_fastcall(
 
 	return func;
 }
-void *parambind_unbind_a_vectorcall(void *code, intptr_t argc, void *argv[])
+void *parambind_unbind_a_fastcall64(void *code, intptr_t argc, void *argv[])
 {
-	return parambind_unbind_a_fastcall(code, argc, argv, CCONVENTION_VECTORCALL);
+	return parambind_unbind_a_fastcall(code, argc, argv, CCONVENTION_FASTCALL64);
 }
 void *parambind_unbind_a_amd64(void *code, intptr_t argc, void *argv[])
 {
@@ -792,13 +793,13 @@ static void *parambind_bind_rs_fastcall(
 	return code;
 }
 
-void *parambind_bind_rs_vectorcall(
+void *parambind_bind_rs_fastcall64(
 	void *f, intptr_t argc,
 	intptr_t closedArgc, void *closedArgv[])
 {
 	return parambind_bind_rs_fastcall(
 		f, argc, closedArgc, closedArgv,
-		CCONVENTION_VECTORCALL);
+		CCONVENTION_FASTCALL64);
 }
 void *parambind_bind_rs_amd64(
 	void *f, intptr_t argc,
@@ -832,7 +833,7 @@ static size_t write_bind_ls_fastcall(
 	if (openedVargsSize > 0)
 	{
 		if (argc <= regs)
-		{ /* vectorcall-like (space for register args in stack) */
+		{ /* fastcall64-like (space for register args in stack) */
 			d += write_moveWithR11(ptrOrNull(p, d),
 					openedArgc * 8,
 					0);
@@ -921,13 +922,13 @@ static void *parambind_bind_ls_fastcall(
 	return code;
 }
 
-void *parambind_bind_ls_vectorcall(
+void *parambind_bind_ls_fastcall64(
 	void *f, intptr_t argc,
 	intptr_t closedArgc, void *closedArgv[])
 {
 	return parambind_bind_ls_fastcall(
 		f, argc, closedArgc, closedArgv,
-		CCONVENTION_VECTORCALL);
+		CCONVENTION_FASTCALL64);
 }
 void *parambind_bind_ls_amd64(
 	void *f, intptr_t argc,
@@ -985,7 +986,7 @@ static size_t write_wrap(
 				srcConvention);
 	}
 
-	/* if amd64->vectorcall, remove register args from stack at here */
+	/* if amd64->fastcall64, remove register args from stack at here */
 
 	/* call */
 
@@ -1005,7 +1006,7 @@ static size_t write_wrap(
 
 	d += write_copyWithR11(ptrOrNull(p, d), (srcRegs + 1) * 8, 0, argc);
 
-	/* if amd64->vectorcall, this block was not just srcRegs * 8 */
+	/* if amd64->fastcall64, this block was not just srcRegs * 8 */
 	d += write_deallocAuto(ptrOrNull(p, d), srcRegs * 8);
 
 	d += write_toStack(ptrOrNull(p, d), REG_R10, 0);
@@ -1045,21 +1046,21 @@ static void *parambind_wrap(
 
 	return code;
 }
-void *parambind_wrapas0_vectorcall_amd64(void *f, intptr_t argc)
+void *parambind_wrapas0_fastcall64_amd64(void *f, intptr_t argc)
 {
 	return parambind_wrap(
 			f, argc,
-			CCONVENTION_VECTORCALL,
+			CCONVENTION_FASTCALL64,
 			CCONVENTION_AMD64);
 }
-void *parambind_wrapas0_amd64_vectorcall(void *f, intptr_t argc)
+void *parambind_wrapas0_amd64_fastcall64(void *f, intptr_t argc)
 {
 	return parambind_wrap(
 			f, argc,
 			CCONVENTION_AMD64,
-			CCONVENTION_VECTORCALL);
+			CCONVENTION_FASTCALL64);
 }
-void *parambind_wrapas_amd64_vectorcall(void *f, intptr_t argc)
+void *parambind_wrapas_amd64_fastcall64(void *f, intptr_t argc)
 {
 	const uint8_t template[] = {
 		/* mov r9, rcx */
@@ -1095,7 +1096,7 @@ void *parambind_wrapas_amd64_vectorcall(void *f, intptr_t argc)
 
 	return code;
 }
-void *parambind_wrapas_vectorcall_amd64(void *f, intptr_t argc)
+void *parambind_wrapas_fastcall64_amd64(void *f, intptr_t argc)
 {
 	const uint8_t template[] = {
 		/* sub rsp, 40 */
@@ -1139,3 +1140,6 @@ void *parambind_wrapas_vectorcall_amd64(void *f, intptr_t argc)
 
 	return code;
 }
+
+
+#endif
